@@ -154,33 +154,6 @@ PYTHONPATH=build/python/package python3 tests/test_video_capture.py /path/to/vid
 - **Python Bindings**: pybind11 with numpy integration and zero-copy where possible
 - **Static Linking**: All FFmpeg libraries (.a) bundled into single .so Python module
 
-### Performance Notes
-
-- Multi-threaded decoding (auto-detects CPU cores)
-- Reusable AVPacket/AVFrame allocations (no per-frame overhead)
-- Assembly disabled for PIC compatibility (~50% slower than asm-enabled builds)
-- Typical throughput: 300-400 FPS on modern hardware
-
-### Project Structure
-
-```
-degirum_video_capture/
-├── CMakeLists.txt                    # Main build config
-├── cmake/                            # Build system modules
-│   ├── BuildExternalDependency.cmake
-│   └── BuildFFmpeg.cmake
-├── src/                              # C++ implementation
-│   ├── VideoCapture.h
-│   └── VideoCapture.cpp
-├── python/                           # Python bindings
-│   ├── video_capture_bindings.cpp
-│   └── degirum_video_capture/
-│       └── __init__.py
-└── tests/                            # Test suite
-    ├── test_video_capture.py
-    └── SMPTE_Color_Bars.mp4
-```
-
 ## Troubleshooting
 
 **FFmpeg build fails**: Check `build/extern/_BuildExternalDependency/ffmpeg-build/config.log`. Ensure all build tools installed.
