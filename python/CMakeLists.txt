@@ -6,7 +6,15 @@ find_package(pybind11 REQUIRED CONFIG PATHS ${pybind11_INSTALL_DIR} NO_DEFAULT_P
 # Python bindings using pybind11
 pybind11_add_module(_video_capture NO_EXTRAS video_capture_bindings.cpp)
 
+# Link video_capture library
 target_link_libraries(_video_capture PRIVATE video_capture)
+
+# Hide all symbols except Python module entry point to avoid conflicts with OpenCV's FFmpeg
+if(UNIX AND NOT APPLE)
+    target_link_options(_video_capture PRIVATE 
+        -Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/symbol_version.map
+    )
+endif()
 
 target_include_directories(_video_capture PRIVATE
     ${CMAKE_SOURCE_DIR}/src
@@ -51,64 +59,12 @@ add_custom_target(wheel ALL
     COMMENT "Building Python wheel package"
 )
 
-message(STATUS "Wheel will be created in: ${CMAKE_BINARY_DIR}/wheels")
-message(STATUS "To test without installing, run: PYTHONPATH=${PYTHON_PACKAGE_DIR} python3 <script.py>")
-
-# Add test target (run test_video_capture.py from build without installing)
-if(EXISTS ${CMAKE_SOURCE_DIR}/tests/test_video_capture.py)
-    add_custom_target(test_module
-        COMMAND ${CMAKE_COMMAND} -E env PYTHONPATH=${PYTHON_PACKAGE_DIR}
-                ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tests/test_video_capture.py
-        DEPENDS _video_capture
-        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-        COMMENT "Running test_video_capture.py without installation"
-    )
-    
-    # Automatic test execution logic
-    set(TEST_STAMP_FILE "${CMAKE_BINARY_DIR}/.tests_completed")
-    
-    if(RUN_TESTS)
-        # User explicitly enabled tests - always run them
-        add_custom_command(TARGET wheel POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E env PYTHONPATH=${PYTHON_PACKAGE_DIR}
-                    ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tests/test_video_capture.py
-            COMMAND ${CMAKE_COMMAND} -E touch ${TEST_STAMP_FILE}
-            WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-            COMMENT "Running tests (forced with -DRUN_TESTS=ON)"
-        )
-        message(STATUS "Tests will run on every build (forced with -DRUN_TESTS=ON)")
-    else()
-        # Default behavior: run tests once on first build only
-        if(NOT EXISTS ${TEST_STAMP_FILE})
-            add_custom_command(TARGET wheel POST_BUILD
-                COMMAND ${CMAKE_COMMAND} -E env PYTHONPATH=${PYTHON_PACKAGE_DIR}
-                        ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tests/test_video_capture.py
-                COMMAND ${CMAKE_COMMAND} -E touch ${TEST_STAMP_FILE}
-                WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-                COMMENT "Running tests (first build only)"
-            )
-            message(STATUS "Tests will run on first build only")
-        else()
-            add_custom_command(TARGET wheel POST_BUILD
-                COMMAND ${CMAKE_COMMAND} -E echo ""
-                COMMAND ${CMAKE_COMMAND} -E echo "============================================================"
-                COMMAND ${CMAKE_COMMAND} -E echo "Tests skipped (already completed on first build)"
-                COMMAND ${CMAKE_COMMAND} -E echo "To re-run tests: cmake .. -DRUN_TESTS=ON && cmake --build ."
-                COMMAND ${CMAKE_COMMAND} -E echo "Or clean build: rm -rf build && mkdir build && cmake .."
-                COMMAND ${CMAKE_COMMAND} -E echo "============================================================"
-                COMMAND ${CMAKE_COMMAND} -E echo ""
-                COMMENT ""
-            )
-            message(STATUS "Tests already completed. Use -DRUN_TESTS=ON to re-run.")
-        endif()
-    endif()
-endif()
-
 # Print wheel location after build
 add_custom_command(TARGET wheel POST_BUILD
     COMMAND "${Python3_EXECUTABLE}" -c "import glob; files = glob.glob('${CMAKE_BINARY_DIR}/wheels/*.whl'); print('Wheel written to ' + (files[0] if files else '${CMAKE_BINARY_DIR}/wheels/'))"
     VERBATIM
 )
+message(STATUS "To test without installing, run: PYTHONPATH=${PYTHON_PACKAGE_DIR} python3 <script.py>")
 
 # Install the Python module (optional, for those who prefer cmake install)
 find_package(Python3 COMPONENTS Interpreter Development)

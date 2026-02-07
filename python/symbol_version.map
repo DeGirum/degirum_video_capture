@@ -1,0 +1,6 @@
+{
+  global:
+    PyInit__video_capture;
+  local:
+    *;
+};

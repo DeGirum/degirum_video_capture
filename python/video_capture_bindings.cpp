@@ -5,155 +5,143 @@
 //
 
 #include <pybind11/pybind11.h>
-#include <pybind11/stl.h>
 #include <pybind11/numpy.h>
-#include "VideoCapture.h"
+#include "../src/VideoCapture.h"
+
+#define NUM_CHANNELS 3 // BGR24 format has 3 channels
 
 namespace py = pybind11;
 
-namespace degirum
+namespace DG
 {
-
-    /**
-     * @brief Iterator class for VideoCapture to enable Python iteration
-     */
-    class VideoCaptureIterator
+    /// Convert AVFrame to numpy array with zero-copy (frame lifecycle tied to array)
+    ///
+    /// This function creates a numpy array that directly references the AVFrame's data buffer.
+    /// The AVFrame is kept alive via a Python capsule until the numpy array is garbage collected.
+    ///
+    /// @param src AVFrame to convert (must be BGR24 format)
+    /// @return py::array numpy array referencing the frame data
+    py::array frame_to_numpy_bgr(AVFrame *src)
     {
-    public:
-        explicit VideoCaptureIterator(VideoCapture *capture)
-            : capture_(capture), done_(false) {}
+        // Create a reference-counted copy to keep buffer alive
+        AVFrame *keep = av_frame_alloc();
+        if (av_frame_ref(keep, src) < 0)
+            throw std::runtime_error("av_frame_ref failed");
 
-        py::array_t<uint8_t> next()
-        {
-            if (done_ || !capture_ || !capture_->isOpened())
-            {
-                throw py::stop_iteration();
-            }
+        // Create a capsule that will free the AVFrame when the numpy array is garbage collected
+        auto capsule = py::capsule(keep, [](void *p)
+                                   {
+            AVFrame* f = reinterpret_cast<AVFrame*>(p);
+            av_frame_free(&f); });
 
-            VideoFrame frame;
-            if (!capture_->read(frame))
-            {
-                done_ = true;
-                throw py::stop_iteration();
-            }
+        // Calculate strides for numpy array (in bytes)
+        std::vector<ssize_t> strides = {
+            static_cast<ssize_t>(src->linesize[0]),
+            static_cast<ssize_t>(NUM_CHANNELS),
+            static_cast<ssize_t>(1)};
 
-            // Create numpy array from frame data
-            // Shape: (height, width, channels)
-            std::vector<ssize_t> shape = {frame.height, frame.width, frame.channels};
-            std::vector<ssize_t> strides = {
-                frame.width * frame.channels, // row stride
-                frame.channels,               // column stride
-                1                             // pixel component stride
-            };
+        // Create and return numpy array
+        return py::array(py::buffer_info(
+                             src->data[0],                             // pointer to data
+                             1,                                        // item size (1 byte for uint8_t)
+                             py::format_descriptor<uint8_t>::format(), // format (uint8)
+                             3,                                        // height, width, channels
+                             {src->height, src->width, NUM_CHANNELS},  // shape of data
+                             strides),                                 // strides for each dimension
+                         capsule);                                     // Pass the capsule to keep the AVFrame alive
+    }
 
-            // Create array (this will copy the data)
-            return py::array_t<uint8_t>(shape, strides, frame.data.data());
-        }
+} // namespace DG
 
-    private:
-        VideoCapture *capture_;
-        bool done_;
-    };
-
-} // namespace degirum
-
+// Python module definition using pybind11
 PYBIND11_MODULE(_video_capture, m)
 {
     m.doc() = "DeGirum Video Capture - FFmpeg-based video reading library";
 
-    // VideoFrame class
-    py::class_<degirum::VideoFrame>(m, "VideoFrame")
-        .def(py::init<>())
-        .def(py::init<int, int, int>(),
-             py::arg("width"), py::arg("height"), py::arg("channels") = 3)
-        .def_readonly("width", &degirum::VideoFrame::width,
-                      "Frame width")
-        .def_readonly("height", &degirum::VideoFrame::height,
-                      "Frame height")
-        .def_readonly("channels", &degirum::VideoFrame::channels,
-                      "Number of channels (3 for BGR)")
-        .def_property_readonly("data", [](const degirum::VideoFrame &frame)
-                               {
-                // Return numpy array view of the frame data
-                std::vector<ssize_t> shape = {frame.height, frame.width, frame.channels};
-                std::vector<ssize_t> strides = {
-                    frame.width * frame.channels,
-                    frame.channels,
-                    1
-                };
-                return py::array_t<uint8_t>(shape, strides, frame.data.data()); }, "Frame data as numpy array (height, width, channels) in BGR format");
-
-    // VideoCaptureIterator class
-    py::class_<degirum::VideoCaptureIterator>(m, "VideoCaptureIterator")
-        .def("__iter__", [](degirum::VideoCaptureIterator &it) -> degirum::VideoCaptureIterator &
-             { return it; })
-        .def("__next__", &degirum::VideoCaptureIterator::next);
-
-    // VideoCapture class
-    py::class_<degirum::VideoCapture>(m, "VideoCapture")
+    py::class_<DG::VideoCapture>(m, "VideoCapture")
         .def(py::init<>(),
              "Create a new VideoCapture object")
 
-        .def("open", &degirum::VideoCapture::open,
-             py::arg("filename"), py::arg("width"), py::arg("height"),
+        .def(py::init<const char *>(),
+             py::arg("filename"),
+             "Create and open a video file\n\n"
+             "Args:\n"
+             "    filename (str): Path to the video file")
+
+        .def("open", &DG::VideoCapture::open,
+             py::arg("filename"),
              "Open a video file for reading\n\n"
              "Args:\n"
-             "    filename (str): Path to the video file\n"
-             "    width (int): Target width for output frames\n"
-             "    height (int): Target height for output frames\n\n"
+             "    filename (str): Path to the video file\n\n"
              "Returns:\n"
              "    bool: True if successful, False otherwise")
 
-        .def("read", [](degirum::VideoCapture &self)
+        .def("read", [](DG::VideoCapture &self)
              {
-                degirum::VideoFrame frame;
-                bool success = self.read(frame);
-                if (!success) {
+                // Check if video is opened
+                if (!self.isOpened()) {
                     return py::make_tuple(false, py::none());
                 }
-                
-                // Convert frame to numpy array
-                std::vector<ssize_t> shape = {frame.height, frame.width, frame.channels};
-                std::vector<ssize_t> strides = {
-                    frame.width * frame.channels,
-                    frame.channels,
-                    1
-                };
-                auto array = py::array_t<uint8_t>(shape, strides, frame.data.data());
-                
-                return py::make_tuple(true, array); }, "Read the next frame from the video\n\n"
+
+                // Allocate BGR frame for this read
+                AVFrame *bgr_frame = av_frame_alloc();
+                if (!bgr_frame) {
+                    throw std::runtime_error("Failed to allocate AVFrame");
+                }
+
+                // Configure frame for BGR24
+                bgr_frame->format = AV_PIX_FMT_BGR24;
+                bgr_frame->width = self.width();
+                bgr_frame->height = self.height();
+
+                // Allocate buffer for the frame data
+                if (av_frame_get_buffer(bgr_frame, 32) < 0) {
+                    av_frame_free(&bgr_frame);
+                    throw std::runtime_error("Failed to allocate frame buffer");
+                }
+
+                // Read frame
+                if (!self.readFrame(bgr_frame)) {
+                    av_frame_free(&bgr_frame);
+                    return py::make_tuple(false, py::none());
+                }
+
+                try {
+                    // Convert to numpy with zero-copy (frame_to_numpy_bgr creates reference)
+                    auto array = DG::frame_to_numpy_bgr(bgr_frame);
+                    
+                    // Free original frame since numpy array has its own reference
+                    av_frame_free(&bgr_frame);
+                    
+                    return py::make_tuple(true, array);
+                }
+                catch (const std::exception& e) {
+                    av_frame_free(&bgr_frame);
+                    throw;
+                } }, "Read the next frame from the video\n\n"
                   "Returns:\n"
                   "    tuple: (success: bool, frame: np.ndarray or None)\n"
                   "           success is True if a frame was read\n"
                   "           frame is numpy array (height, width, 3) in BGR format or None")
 
-        .def("is_opened", &degirum::VideoCapture::isOpened, "Check if the video is opened\n\n"
-                                                            "Returns:\n"
-                                                            "    bool: True if opened, False otherwise")
+        .def("is_opened", &DG::VideoCapture::isOpened, "Check if the video is opened\n\n"
+                                                       "Returns:\n"
+                                                       "    bool: True if opened, False otherwise")
 
-        .def("close", &degirum::VideoCapture::close, "Close the video file")
+        .def("close", &DG::VideoCapture::close, "Close the video file")
+        .def("width", &DG::VideoCapture::width, "Get the video width\n\n"
+                                                "Returns:\n"
+                                                "    int: Video width in pixels")
 
-        .def("get_frame_number", &degirum::VideoCapture::getFrameNumber, "Get the current frame number (0-based)\n\n"
-                                                                         "Returns:\n"
-                                                                         "    int: Current frame number")
+        .def("height", &DG::VideoCapture::height, "Get the video height\n\n"
+                                                  "Returns:\n"
+                                                  "    int: Video height in pixels")
 
-        .def("get_width", &degirum::VideoCapture::getWidth, "Get the original video width\n\n"
-                                                            "Returns:\n"
-                                                            "    int: Video width in pixels")
-
-        .def("get_height", &degirum::VideoCapture::getHeight, "Get the original video height\n\n"
-                                                              "Returns:\n"
-                                                              "    int: Video height in pixels")
-
-        .def("__iter__", [](degirum::VideoCapture &self)
-             { return degirum::VideoCaptureIterator(&self); }, "Return an iterator for reading frames")
-
-        .def("__enter__", [](degirum::VideoCapture &self) -> degirum::VideoCapture &
+        .def("__enter__", [](DG::VideoCapture &self) -> DG::VideoCapture &
              { return self; }, "Context manager entry")
 
-        .def("__exit__", [](degirum::VideoCapture &self, py::object exc_type, py::object exc_value, py::object traceback)
+        .def("__exit__", [](DG::VideoCapture &self, py::object, py::object, py::object)
              { self.close(); }, "Context manager exit");
 
-    // Module-level version info
     m.attr("__version__") = "1.0.0";
 }

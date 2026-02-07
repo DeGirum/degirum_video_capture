@@ -82,7 +82,7 @@ endif()
 include(BuildExternalDependency)
 set(BuildExternalDependency_BASE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/extern/_BuildExternalDependency CACHE INTERNAL "" FORCE)
 
-# pybind11 (same version as Framework)
+# pybind11
 if(BUILD_PYTHON_BINDINGS)
   BuildExternalDependency(
     pybind11
@@ -97,7 +97,7 @@ endif()
 BuildExternalDependency(
   ffmpeg
   GIT_REPOSITORY https://git.ffmpeg.org/ffmpeg.git
-  GIT_TAG n7.1
+  GIT_TAG n6.1
   CUSTOM_BUILD
   SOURCE_SUBDIR .
 )
