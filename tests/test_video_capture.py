@@ -15,7 +15,7 @@ DEFAULT_VIDEO = os.path.join(os.path.dirname(os.path.abspath(__file__)), "SMPTE_
 
 # Import the module
 try:
-    from degirum_video_capture import VideoCapture
+    from degirum_video_capture import VideoCapture, CAP_PROP_FRAME_WIDTH, CAP_PROP_FRAME_HEIGHT
     print("✓ Successfully imported VideoCapture")
 except ImportError as e:
     print(f"✗ Failed to import VideoCapture: {e}")
@@ -31,8 +31,8 @@ def test_basic_functionality():
     print("✓ VideoCapture initialized")
     
     # Test that it's not opened
-    assert not capture.is_opened(), "Capture should not be opened initially"
-    print("✓ is_opened() returns False for new capture")
+    assert not capture.isOpened(), "Capture should not be opened initially"
+    print("✓ isOpened() returns False for new capture")
     
     print("\n✓ All basic functionality tests passed")
 
@@ -50,7 +50,10 @@ def test_video_reading(video_path, width=640, height=640):
                 print(f"✗ Failed to open video: {video_path}")
                 return False
             
-            for frame in capture:
+            while True:
+                success, frame = capture.read()
+                if not success:
+                    break
                 frame_count += 1
                 
                 # Validate frame properties
@@ -95,9 +98,12 @@ def test_context_manager(video_path, width=640, height=640):
                 return False
             
             print(f"✓ Video opened successfully")
-            print(f"  - Original size: {capture.get_width()}x{capture.get_height()}")
+            print(f"  - Original size: {int(capture.get(CAP_PROP_FRAME_WIDTH))}x{int(capture.get(CAP_PROP_FRAME_HEIGHT))}")
             
-            for frame in capture:
+            while True:
+                success, frame = capture.read()
+                if not success:
+                    break
                 frame_count += 1
                 if frame_count >= 5:
                     break
@@ -154,18 +160,26 @@ def test_fps_benchmark(video_path, width=640, height=640):
     print(f"Video: {video_path}")
     print(f"Target size: {width}x{height}")
     
-    # Now the actual test
     capture = VideoCapture()
     
     try:
+        if not capture.open(video_path, width, height):
+            print(f"✗ Failed to open video: {video_path}")
+            return False
+        
         n = 0
         start_time = time.time()
         
-        for _ in capture.read_file(video_path, width, height):
+        while True:
+            success, frame = capture.read()
+            if not success:
+                break
             n += 1
         
         elapsed_time = time.time() - start_time
         fps = n / elapsed_time if elapsed_time > 0 else 0
+        
+        capture.close()
         
         print(f"DIAGNOSTIC: Second fresh read: {n} frames")
         print(f"✓ Processed {n} frames in {elapsed_time:.2f} seconds")
@@ -177,6 +191,8 @@ def test_fps_benchmark(video_path, width=640, height=640):
         import traceback
         traceback.print_exc()
         return False
+    finally:
+        capture.close()
 
 
 def main():

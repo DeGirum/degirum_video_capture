@@ -7,6 +7,7 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
 #include "../src/VideoCapture.h"
+#include "../src/opencv_enums.h"
 
 #define NUM_CHANNELS 3 // BGR24 format has 3 channels
 
@@ -59,20 +60,44 @@ PYBIND11_MODULE(_video_capture, m)
     m.doc() = "DeGirum Video Capture - FFmpeg-based video reading library";
 
     py::class_<DG::VideoCapture>(m, "VideoCapture")
-        .def(py::init<>(),
+        // Default constructor (no args) -> VideoCapture
+        .def(py::init([]()
+                      { return std::make_unique<DG::VideoCapture>(); }),
              "Create a new VideoCapture object")
 
-        .def(py::init<const char *>(),
+        // Constructor with filename only -> VideoCapture
+        .def(py::init([](const char *filename)
+                      { return std::make_unique<DG::VideoCapture>(filename); }),
              py::arg("filename"),
              "Create and open a video file\n\n"
              "Args:\n"
              "    filename (str): Path to the video file")
 
-        .def("open", &DG::VideoCapture::open,
+        // Constructor with filename, width, height -> VideoCapture with resize
+        .def(py::init([](const char *filename, int width, int height)
+                      { return std::make_unique<DG::VideoCapture>(filename, width, height); }),
+             py::arg("filename"), py::arg("width"), py::arg("height"),
+             "Create and open a video file with resizing\n\n"
+             "Args:\n"
+             "    filename (str): Path to the video file\n"
+             "    width (int): Target width for resized frames\n"
+             "    height (int): Target height for resized frames")
+
+        .def("open", py::overload_cast<const char *>(&DG::VideoCapture::open),
              py::arg("filename"),
              "Open a video file for reading\n\n"
              "Args:\n"
              "    filename (str): Path to the video file\n\n"
+             "Returns:\n"
+             "    bool: True if successful, False otherwise")
+
+        .def("open", py::overload_cast<const char *, int, int>(&DG::VideoCapture::open),
+             py::arg("filename"), py::arg("width"), py::arg("height"),
+             "Open a video file for reading with resizing\n\n"
+             "Args:\n"
+             "    filename (str): Path to the video file\n"
+             "    width (int): Target width for resized frames\n"
+             "    height (int): Target height for resized frames\n\n"
              "Returns:\n"
              "    bool: True if successful, False otherwise")
 
@@ -91,8 +116,8 @@ PYBIND11_MODULE(_video_capture, m)
 
                 // Configure frame for BGR24
                 bgr_frame->format = AV_PIX_FMT_BGR24;
-                bgr_frame->width = self.width();
-                bgr_frame->height = self.height();
+                bgr_frame->width = self.outputWidth();
+                bgr_frame->height = self.outputHeight();
 
                 // Allocate buffer for the frame data
                 if (av_frame_get_buffer(bgr_frame, 32) < 0) {
@@ -124,24 +149,36 @@ PYBIND11_MODULE(_video_capture, m)
                   "           success is True if a frame was read\n"
                   "           frame is numpy array (height, width, 3) in BGR format or None")
 
-        .def("is_opened", &DG::VideoCapture::isOpened, "Check if the video is opened\n\n"
-                                                       "Returns:\n"
-                                                       "    bool: True if opened, False otherwise")
+        .def("isOpened", &DG::VideoCapture::isOpened, "Check if the video is opened\n\n"
+                                                      "Returns:\n"
+                                                      "    bool: True if opened, False otherwise")
 
         .def("close", &DG::VideoCapture::close, "Close the video file")
-        .def("width", &DG::VideoCapture::width, "Get the video width\n\n"
-                                                "Returns:\n"
-                                                "    int: Video width in pixels")
 
-        .def("height", &DG::VideoCapture::height, "Get the video height\n\n"
-                                                  "Returns:\n"
-                                                  "    int: Video height in pixels")
+        .def("get", &DG::VideoCapture::get, py::arg("prop_id"), "Get video capture property\n\n"
+                                                                "Args:\n"
+                                                                "    prop_id (int): Property identifier (use CAP_PROP_* constants)\n\n"
+                                                                "Returns:\n"
+                                                                "    float: Property value, or -1 if not supported/available\n\n"
+                                                                "Example:\n"
+                                                                "    fps = cap.get(CAP_PROP_FPS)\n"
+                                                                "    frame_count = cap.get(CAP_PROP_FRAME_COUNT)")
 
         .def("__enter__", [](DG::VideoCapture &self) -> DG::VideoCapture &
              { return self; }, "Context manager entry")
 
         .def("__exit__", [](DG::VideoCapture &self, py::object, py::object, py::object)
              { self.close(); }, "Context manager exit");
+
+    // Expose VideoCaptureProperties enum constants
+    m.attr("CAP_PROP_POS_MSEC") = static_cast<int>(cv::CAP_PROP_POS_MSEC);
+    m.attr("CAP_PROP_POS_FRAMES") = static_cast<int>(cv::CAP_PROP_POS_FRAMES);
+    m.attr("CAP_PROP_POS_AVI_RATIO") = static_cast<int>(cv::CAP_PROP_POS_AVI_RATIO);
+    m.attr("CAP_PROP_FRAME_WIDTH") = static_cast<int>(cv::CAP_PROP_FRAME_WIDTH);
+    m.attr("CAP_PROP_FRAME_HEIGHT") = static_cast<int>(cv::CAP_PROP_FRAME_HEIGHT);
+    m.attr("CAP_PROP_FPS") = static_cast<int>(cv::CAP_PROP_FPS);
+    m.attr("CAP_PROP_FOURCC") = static_cast<int>(cv::CAP_PROP_FOURCC);
+    m.attr("CAP_PROP_FRAME_COUNT") = static_cast<int>(cv::CAP_PROP_FRAME_COUNT);
 
     m.attr("__version__") = "1.0.0";
 }
