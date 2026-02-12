@@ -8,7 +8,7 @@ namespace DG
     /// @param filename Path to the video file to open
     VideoCapture::VideoCapture(const char *filename)
     {
-        open(filename);
+        open(filename, 0, 0);
     }
 
     /// Constructor that opens the video file with resize dimensions
@@ -121,13 +121,6 @@ namespace DG
         return true;
     }
 
-    /// Open a video file for reading WITHOUT resizing and filter graph
-    /// @param filename Path to the video file to open
-    /// @return True if the video was successfully opened, false otherwise
-    bool VideoCapture::open(const char *filename)
-    {
-        return VideoCapture::open(filename, 0, 0);
-    }
 
     /// Close the video file and clean up all resources
     void VideoCapture::close()

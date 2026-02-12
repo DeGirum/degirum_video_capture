@@ -31,8 +31,7 @@ namespace DG
         explicit VideoCapture(const char *filename, int target_width, int target_height);
         ~VideoCapture();
 
-        bool open(const char *filename);
-        bool open(const char *filename, int target_width, int target_height);
+        bool open(const char *filename, int target_width = 0, int target_height = 0);
         void close();
         bool isOpened() const;
 

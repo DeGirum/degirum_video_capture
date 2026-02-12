@@ -83,21 +83,13 @@ PYBIND11_MODULE(_video_capture, m)
              "    width (int): Target width for resized frames\n"
              "    height (int): Target height for resized frames")
 
-        .def("open", py::overload_cast<const char *>(&DG::VideoCapture::open),
-             py::arg("filename"),
+        .def("open", &DG::VideoCapture::open,
+             py::arg("filename"), py::arg("width") = 0, py::arg("height") = 0,
              "Open a video file for reading\n\n"
              "Args:\n"
-             "    filename (str): Path to the video file\n\n"
-             "Returns:\n"
-             "    bool: True if successful, False otherwise")
-
-        .def("open", py::overload_cast<const char *, int, int>(&DG::VideoCapture::open),
-             py::arg("filename"), py::arg("width"), py::arg("height"),
-             "Open a video file for reading with resizing\n\n"
-             "Args:\n"
              "    filename (str): Path to the video file\n"
-             "    width (int): Target width for resized frames\n"
-             "    height (int): Target height for resized frames\n\n"
+             "    width (int, optional): Target width for resized frames (default: 0 = no resize)\n"
+             "    height (int, optional): Target height for resized frames (default: 0 = no resize)\n\n"
              "Returns:\n"
              "    bool: True if successful, False otherwise")
 
