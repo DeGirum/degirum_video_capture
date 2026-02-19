@@ -11,12 +11,13 @@ __pycache__/
 dist/
 *.egg
 
-# CMake
+# CMake (ignore build artifacts but keep project cmake scripts)
 CMakeCache.txt
 CMakeFiles/
 cmake_install.cmake
 Makefile
 *.cmake
+!cmake/*.cmake
 
 # IDE
 .vscode/
