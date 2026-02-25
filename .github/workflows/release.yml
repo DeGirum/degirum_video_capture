@@ -1,0 +1,173 @@
+name: Release to GitHub/PyPI
+
+on:
+  workflow_dispatch:
+    inputs:
+      to_github:
+        description: "Release to GitHub"
+        type: boolean
+        default: false
+      to_pypi:
+        description: "Release to PyPI"
+        type: boolean
+        default: false
+
+jobs:
+  build:
+    name: Build wheel (${{ matrix.runner }}, Python ${{ matrix.python }})
+
+    defaults:
+      run:
+        shell: bash -eo pipefail -l {0}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        runner:
+          - dg-ubuntu-20.04-cs
+          - dg-ubuntu-22.04-arm
+        python: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+
+    runs-on: ${{ matrix.runner }}
+
+    timeout-minutes: 60
+    steps:
+      - name: Configure git
+        run: |
+          git config --global user.name "degirumautomation"
+          git config --global user.email "main.office@degirum.com"
+          git config --global core.autocrlf false
+
+      - name: Check out repository code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Install FFmpeg build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y nasm yasm
+
+      - name: Install Python build dependencies
+        run: python -m pip install --upgrade setuptools build wheel pip
+
+      - name: Set cache key based on runner
+        id: cache_key
+        run: |
+          if [[ "${{ matrix.runner }}" == "dg-ubuntu-22.04-arm" ]]; then
+            echo "cache_prefix=dg-ubuntu-22.04-arm" >> $GITHUB_OUTPUT
+          else
+            echo "cache_prefix=" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Restore cached external modules
+        id: cache-external-modules
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ github.workspace }}/extern/_BuildExternalDependency
+          key: ${{ runner.os }}${{ steps.cache_key.outputs.cache_prefix }}-build-cache-external-modules-${{ hashFiles('./.github-cache-key') }}
+
+      - name: CMake configure
+        run: |
+          cmake -B ${{ github.workspace }}/build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Optimize cacheable deps
+        run: python rmgit.py
+        working-directory: ${{ github.workspace }}/extern
+
+      - name: Save external modules cache
+        if: ${{ steps.cache-external-modules.outputs.cache-hit != 'true' && github.ref_name == 'master' }}
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ github.workspace }}/extern/_BuildExternalDependency
+          key: ${{ runner.os }}${{ steps.cache_key.outputs.cache_prefix }}-build-cache-external-modules-${{ hashFiles('./.github-cache-key') }}
+
+      - name: Install project Python dependencies
+        run: |
+          if [ -f "${{ github.workspace }}/requirements.txt" ]; then
+            python -m pip install --upgrade -r ${{ github.workspace }}/requirements.txt
+          fi
+
+      - name: CMake build
+        run: cmake --build ${{ github.workspace }}/build --config Release --parallel 4
+
+      - name: Build Python package
+        run: |
+          cd ${{ github.workspace }}/build/python/package
+          python -m build .
+
+      - name: Upload wheel as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheel-${{ matrix.runner }}-py${{ matrix.python }}
+          path: ${{ github.workspace }}/build/python/package/dist/*.whl
+          if-no-files-found: error
+
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+    if: ${{ inputs.to_github || inputs.to_pypi }}
+    outputs:
+      package_version: ${{ steps.create_tag.outputs.package_version }}
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v4
+
+      - name: Download all wheel artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          pattern: wheel-*
+          merge-multiple: true
+
+      - name: Extract package version and create git tag
+        id: create_tag
+        run: |
+          wheel_file=$(find dist -name "*.whl" -print -quit)
+          package_version=${{ github.ref_name }}-v$(basename $wheel_file | sed 's/^[^-]*-\([^ -]*\).*/\1/')
+          echo "Package version tag: $package_version"
+          if git ls-remote --tags origin | grep -q "refs/tags/$package_version$"; then
+            echo "Tag $package_version already exists. Skipping."
+          else
+            git tag "$package_version"
+            git push origin "$package_version"
+          fi
+          echo "package_version=$package_version" >> "$GITHUB_OUTPUT"
+
+      - name: Create/Update GitHub Release
+        if: ${{ inputs.to_github }}
+        uses: softprops/action-gh-release@v2
+        with:
+          fail_on_unmatched_files: true
+          files: dist/*.whl
+          tag_name: ${{ steps.create_tag.outputs.package_version }}
+
+      - name: Install twine for PyPI upload
+        if: ${{ inputs.to_pypi }}
+        run: python -m pip install twine
+
+      - name: Upload wheels to PyPI
+        if: ${{ inputs.to_pypi }}
+        run: twine upload --verbose -u __token__ -p "${{ secrets.PYPI_PASSWORD }}" --non-interactive --disable-progress-bar dist/*.whl
+
+  summary:
+    name: Finish Release
+    needs: [build, release]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Create release summary
+        run: |
+          echo "## 📦 Release Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Package Version:** \`${{ needs.release.outputs.package_version || 'N/A' }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch:** \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Triggered by:** @${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Release Targets:**" >> $GITHUB_STEP_SUMMARY
+          echo "- GitHub: ${{ inputs.to_github && '✅' || '➖' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- PyPI: ${{ inputs.to_pypi && '✅' || '➖' }}" >> $GITHUB_STEP_SUMMARY

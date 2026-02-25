@@ -11,6 +11,9 @@ __pycache__/
 dist/
 *.egg
 
+# Auto-generated version files
+python/degirum_video_capture/_version.py
+
 # CMake (ignore build artifacts but keep project cmake scripts)
 CMakeCache.txt
 CMakeFiles/

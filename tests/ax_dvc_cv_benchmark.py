@@ -1,6 +1,6 @@
 import gc
-import degirum
-#import degirum_video_capture as dvc
+#import degirum
+import degirum_video_capture as dvc
 import cv2
 import numpy as np
 import time
@@ -73,8 +73,8 @@ def cv2_ax_benchmark():
 def dvc_benchmark():
         #cap = dvc.VideoCapture()
         #cap.open(filename)
-        #cap = dvc.VideoCapture(filename) #, 640, 640)
-        cap = degirum.video_capture.VideoCapture(filename) #, 640, 640)
+        cap = dvc.VideoCapture(filename) #, 640, 640)
+        #cap = degirum.video_capture.VideoCapture(filename) #, 640, 640)
 
         gc.collect()
         gc.disable()

@@ -172,5 +172,6 @@ PYBIND11_MODULE(_video_capture, m)
     m.attr("CAP_PROP_FOURCC") = static_cast<int>(cv::CAP_PROP_FOURCC);
     m.attr("CAP_PROP_FRAME_COUNT") = static_cast<int>(cv::CAP_PROP_FRAME_COUNT);
 
-    m.attr("__version__") = "1.0.0";
+    // Version automatically set by CMake from PROJECT_VERSION
+    m.attr("__version__") = "@PROJECT_VERSION@";
 }

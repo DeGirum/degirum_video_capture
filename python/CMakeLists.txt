@@ -3,8 +3,15 @@ cmake_minimum_required(VERSION 3.16)
 # Find pybind11
 find_package(pybind11 REQUIRED CONFIG PATHS ${pybind11_INSTALL_DIR} NO_DEFAULT_PATH)
 
+# Configure the C++ bindings file with version from main project
+configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/video_capture_bindings.cpp
+    ${CMAKE_CURRENT_BINARY_DIR}/video_capture_bindings_configured.cpp
+    @ONLY
+)
+
 # Python bindings using pybind11
-pybind11_add_module(_video_capture NO_EXTRAS video_capture_bindings.cpp)
+pybind11_add_module(_video_capture NO_EXTRAS ${CMAKE_CURRENT_BINARY_DIR}/video_capture_bindings_configured.cpp)
 
 # Link video_capture library
 target_link_libraries(_video_capture PRIVATE video_capture)
@@ -30,12 +37,20 @@ set_target_properties(_video_capture PROPERTIES
 # Copy Python package files to build directory
 set(PYTHON_PACKAGE_DIR "${CMAKE_CURRENT_BINARY_DIR}/package")
 
-# Copy __init__.py
+# Generate _version.py with current project version (build directory only)
+configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/_version.py.in
+    ${PYTHON_PACKAGE_DIR}/degirum_video_capture/_version.py
+    @ONLY
+)
+
+# Copy __init__.py and other package files
 add_custom_command(
     TARGET _video_capture POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         ${CMAKE_CURRENT_SOURCE_DIR}/degirum_video_capture
         ${PYTHON_PACKAGE_DIR}/degirum_video_capture
+    DEPENDS ${PYTHON_PACKAGE_DIR}/degirum_video_capture/_version.py
     COMMENT "Copying Python package files"
 )
 

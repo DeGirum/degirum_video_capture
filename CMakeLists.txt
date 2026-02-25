@@ -5,7 +5,9 @@ cmake_minimum_required(VERSION 3.16)
 #
 # Copyright 2026 DeGirum Corporation
 #
-project(DEGIRUM_VIDEO_CAPTURE VERSION 1.0.0 LANGUAGES C CXX)
+
+# Single source of truth project version declaration
+project(DEGIRUM_VIDEO_CAPTURE VERSION 0.1.0 LANGUAGES C CXX)
 
 # ##############################################################################
 # Configuration Options
