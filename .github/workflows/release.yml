@@ -34,14 +34,8 @@ jobs:
 
     runs-on: ${{ matrix.runner }}
 
-    timeout-minutes: 60
+    timeout-minutes: 15
     steps:
-      - name: Configure git
-        run: |
-          git config --global user.name "degirumautomation"
-          git config --global user.email "main.office@degirum.com"
-          git config --global core.autocrlf false
-
       - name: Check out repository code
         uses: actions/checkout@v4
 
