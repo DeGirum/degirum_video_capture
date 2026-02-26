@@ -110,17 +110,51 @@ jobs:
       - name: Convert wheels to manylinux format
         run: |
           mkdir -p ${{ github.workspace }}/manylinux_wheels
+          
+          # Detect architecture
+          ARCH=$(uname -m)
+          echo "Detected architecture: $ARCH"
+          
           for wheel in ${{ github.workspace }}/build/python/package/dist/*.whl; do
             echo "Processing wheel: $wheel"
-            # Try different manylinux versions, starting with newer ones
-            if python -m auditwheel repair "$wheel" -w ${{ github.workspace }}/manylinux_wheels --plat-tag manylinux_2_17_x86_64; then
-              echo "Successfully converted to manylinux_2_17_x86_64"
-            elif python -m auditwheel repair "$wheel" -w ${{ github.workspace }}/manylinux_wheels --plat-tag manylinux_2_28_x86_64; then
-              echo "Successfully converted to manylinux_2_28_x86_64" 
-            elif python -m auditwheel repair "$wheel" -w ${{ github.workspace }}/manylinux_wheels --plat-tag manylinux_2_35_x86_64; then
-              echo "Successfully converted to manylinux_2_35_x86_64"
+            
+            # Try auto-detection first
+            echo "Trying auto platform detection..."
+            if python -m auditwheel repair "$wheel" -w ${{ github.workspace }}/manylinux_wheels; then
+              echo "Successfully converted with auto platform detection"
+              continue
+            fi
+            
+            # Set platform tags based on architecture for manual override
+            if [[ "$ARCH" == "x86_64" ]]; then
+              PLATFORMS=("manylinux_2_17_x86_64" "manylinux_2_28_x86_64" "manylinux_2_35_x86_64")
+            elif [[ "$ARCH" == "aarch64" ]]; then
+              # Try common aarch64 variants
+              PLATFORMS=("manylinux_2_17_aarch64" "manylinux_2_28_aarch64" "manylinux_2_35_aarch64")
             else
-              echo "ERROR: auditwheel repair failed for all manylinux versions for wheel: $wheel"
+              echo "Unsupported architecture: $ARCH, trying default conversion..."
+              if python -m auditwheel repair "$wheel" -w ${{ github.workspace }}/manylinux_wheels; then
+                echo "Successfully converted with default settings"
+                continue
+              else
+                echo "ERROR: auditwheel repair failed for wheel: $wheel"
+                exit 1
+              fi
+            fi
+            
+            # Try different manylinux versions as fallback
+            SUCCESS=false
+            for plat in "${PLATFORMS[@]}"; do
+              echo "Trying platform: $plat"
+              if python -m auditwheel repair "$wheel" -w ${{ github.workspace }}/manylinux_wheels --plat "$plat"; then
+                echo "Successfully converted to $plat"
+                SUCCESS=true
+                break
+              fi
+            done
+            
+            if [[ "$SUCCESS" == "false" ]]; then
+              echo "ERROR: auditwheel repair failed for all attempts for wheel: $wheel"
               exit 1
             fi
           done
