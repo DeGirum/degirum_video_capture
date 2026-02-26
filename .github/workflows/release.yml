@@ -11,6 +11,10 @@ on:
         description: "Release to PyPI"
         type: boolean
         default: false
+      force_dependency_rebuild:
+        description: "Force rebuild of all external dependencies (ignore cache)"
+        type: boolean
+        default: false
 
 jobs:
   build:
@@ -63,36 +67,46 @@ jobs:
             echo "cache_prefix=" >> $GITHUB_OUTPUT
           fi
 
+      - name: Clear external dependencies (force rebuild)
+        if: ${{ inputs.force_dependency_rebuild }}
+        run: |
+          echo "Force dependency rebuild requested - clearing extern directory"
+          rm -rf ${{ github.workspace }}/extern/_BuildExternalDependency
+
       - name: Restore cached external modules
+        if: ${{ !inputs.force_dependency_rebuild }}
         id: cache-external-modules
         uses: actions/cache/restore@v4
         with:
           path: ${{ github.workspace }}/extern/_BuildExternalDependency
-          key: ${{ runner.os }}${{ steps.cache_key.outputs.cache_prefix }}-build-cache-external-modules-${{ hashFiles('./.github-cache-key') }}
+          key: ${{ runner.os }}${{ steps.cache_key.outputs.cache_prefix }}-build-cache-external-modules-${{ hashFiles('cmake/*.cmake', 'CMakeLists.txt') }}
+          restore-keys: |
+            ${{ runner.os }}${{ steps.cache_key.outputs.cache_prefix }}-build-cache-external-modules-
 
       - name: CMake configure
         run: |
           cmake -B ${{ github.workspace }}/build -DCMAKE_BUILD_TYPE=Release
 
+      - name: CMake build
+        run: cmake --build ${{ github.workspace }}/build --config Release --parallel 4
+
       - name: Optimize cacheable deps
+        if: ${{ !inputs.force_dependency_rebuild }}
         run: python3 rmgit.py
         working-directory: ${{ github.workspace }}/extern
 
       - name: Save external modules cache
-        if: ${{ steps.cache-external-modules.outputs.cache-hit != 'true' && github.ref_name == 'master' }}
+        if: ${{ !inputs.force_dependency_rebuild && (!steps.cache-external-modules.outputs.cache-hit || 'true') && github.ref_name == 'master' }}
         uses: actions/cache/save@v4
         with:
           path: ${{ github.workspace }}/extern/_BuildExternalDependency
-          key: ${{ runner.os }}${{ steps.cache_key.outputs.cache_prefix }}-build-cache-external-modules-${{ hashFiles('./.github-cache-key') }}
+          key: ${{ runner.os }}${{ steps.cache_key.outputs.cache_prefix }}-build-cache-external-modules-${{ hashFiles('cmake/*.cmake', 'CMakeLists.txt') }}
 
       - name: Install project Python dependencies
         run: |
           if [ -f "${{ github.workspace }}/requirements.txt" ]; then
             python -m pip install --upgrade -r ${{ github.workspace }}/requirements.txt
           fi
-
-      - name: CMake build
-        run: cmake --build ${{ github.workspace }}/build --config Release --parallel 4
 
       - name: Build Python package
         run: |
@@ -167,6 +181,9 @@ jobs:
           echo "**Package Version:** \`${{ needs.release.outputs.package_version || 'N/A' }}\`" >> $GITHUB_STEP_SUMMARY
           echo "**Branch:** \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
           echo "**Triggered by:** @${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Build Options:**" >> $GITHUB_STEP_SUMMARY
+          echo "- Force Dependency Rebuild: ${{ inputs.force_dependency_rebuild && '✅' || '➖' }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Release Targets:**" >> $GITHUB_STEP_SUMMARY
           echo "- GitHub: ${{ inputs.to_github && '✅' || '➖' }}" >> $GITHUB_STEP_SUMMARY
