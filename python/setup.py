@@ -3,7 +3,7 @@ Setup script for degirum_video_capture package
 """
 
 import os
-from setuptools import setup, find_packages
+from setuptools import setup, find_packages, Extension
 
 # Get version from _version.py
 def get_version():
@@ -41,6 +41,12 @@ setup(
     long_description_content_type="text/markdown",
     url="https://github.com/DeGirum/degirum_video_capture",
     packages=find_packages(),
+    ext_modules=[
+        Extension(
+            name='degirum_video_capture._video_capture',
+            sources=[]  # Pre-built binary, no sources to compile
+        )
+    ],
     classifiers=[
         "Development Status :: 4 - Beta",
         "Intended Audience :: Developers",

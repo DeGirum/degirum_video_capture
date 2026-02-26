@@ -107,11 +107,27 @@ jobs:
           cd ${{ github.workspace }}/build/python/package
           python -m build .
 
+      - name: Install auditwheel for manylinux conversion
+        run: python -m pip install auditwheel
+
+      - name: Convert wheels to manylinux format
+        run: |
+          mkdir -p ${{ github.workspace }}/manylinux_wheels
+          for wheel in ${{ github.workspace }}/build/python/package/dist/*.whl; do
+            echo "Processing wheel: $wheel"
+            auditwheel repair "$wheel" -w ${{ github.workspace }}/manylinux_wheels || {
+              echo "Warning: auditwheel repair failed for $wheel, keeping original"
+              cp "$wheel" ${{ github.workspace }}/manylinux_wheels/
+            }
+          done
+          echo "Manylinux wheels created:"
+          ls -la ${{ github.workspace }}/manylinux_wheels/
+
       - name: Upload wheel as artifact
         uses: actions/upload-artifact@v4
         with:
           name: wheel-${{ matrix.runner }}-py${{ matrix.python }}
-          path: ${{ github.workspace }}/build/python/package/dist/*.whl
+          path: ${{ github.workspace }}/manylinux_wheels/*.whl
           if-no-files-found: error
 
   release:
