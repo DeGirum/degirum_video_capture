@@ -115,10 +115,17 @@ jobs:
           mkdir -p ${{ github.workspace }}/manylinux_wheels
           for wheel in ${{ github.workspace }}/build/python/package/dist/*.whl; do
             echo "Processing wheel: $wheel"
-            auditwheel repair "$wheel" -w ${{ github.workspace }}/manylinux_wheels || {
-              echo "Warning: auditwheel repair failed for $wheel, keeping original"
-              cp "$wheel" ${{ github.workspace }}/manylinux_wheels/
-            }
+            # Try different manylinux versions, starting with newer ones
+            if auditwheel repair "$wheel" -w ${{ github.workspace }}/manylinux_wheels --plat-tag manylinux_2_17_x86_64; then
+              echo "Successfully converted to manylinux_2_17_x86_64"
+            elif auditwheel repair "$wheel" -w ${{ github.workspace }}/manylinux_wheels --plat-tag manylinux_2_28_x86_64; then
+              echo "Successfully converted to manylinux_2_28_x86_64" 
+            elif auditwheel repair "$wheel" -w ${{ github.workspace }}/manylinux_wheels --plat-tag manylinux_2_35_x86_64; then
+              echo "Successfully converted to manylinux_2_35_x86_64"
+            else
+              echo "ERROR: auditwheel repair failed for all manylinux versions for wheel: $wheel"
+              exit 1
+            fi
           done
           echo "Manylinux wheels created:"
           ls -la ${{ github.workspace }}/manylinux_wheels/
