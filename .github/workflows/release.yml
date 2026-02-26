@@ -108,7 +108,11 @@ jobs:
           python -m build .
 
       - name: Install auditwheel for manylinux conversion
-        run: python -m pip install auditwheel
+        run: |
+          python -m pip install --upgrade auditwheel
+          # Verify installation
+          python -c "import auditwheel; print(f'auditwheel version: {auditwheel.__version__}')"
+          which auditwheel
 
       - name: Convert wheels to manylinux format
         run: |
@@ -116,11 +120,11 @@ jobs:
           for wheel in ${{ github.workspace }}/build/python/package/dist/*.whl; do
             echo "Processing wheel: $wheel"
             # Try different manylinux versions, starting with newer ones
-            if auditwheel repair "$wheel" -w ${{ github.workspace }}/manylinux_wheels --plat-tag manylinux_2_17_x86_64; then
+            if python -m auditwheel repair "$wheel" -w ${{ github.workspace }}/manylinux_wheels --plat-tag manylinux_2_17_x86_64; then
               echo "Successfully converted to manylinux_2_17_x86_64"
-            elif auditwheel repair "$wheel" -w ${{ github.workspace }}/manylinux_wheels --plat-tag manylinux_2_28_x86_64; then
+            elif python -m auditwheel repair "$wheel" -w ${{ github.workspace }}/manylinux_wheels --plat-tag manylinux_2_28_x86_64; then
               echo "Successfully converted to manylinux_2_28_x86_64" 
-            elif auditwheel repair "$wheel" -w ${{ github.workspace }}/manylinux_wheels --plat-tag manylinux_2_35_x86_64; then
+            elif python -m auditwheel repair "$wheel" -w ${{ github.workspace }}/manylinux_wheels --plat-tag manylinux_2_35_x86_64; then
               echo "Successfully converted to manylinux_2_35_x86_64"
             else
               echo "ERROR: auditwheel repair failed for all manylinux versions for wheel: $wheel"
