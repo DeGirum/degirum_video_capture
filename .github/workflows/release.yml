@@ -75,7 +75,7 @@ jobs:
           cmake -B ${{ github.workspace }}/build -DCMAKE_BUILD_TYPE=Release
 
       - name: Optimize cacheable deps
-        run: python rmgit.py
+        run: python3 rmgit.py
         working-directory: ${{ github.workspace }}/extern
 
       - name: Save external modules cache

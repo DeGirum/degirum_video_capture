@@ -1,6 +1,8 @@
 # Build directories
 build/
 extern/
+# Exception: keep rmgit.py script needed for GitHub Actions
+!extern/rmgit.py
 
 # Python
 __pycache__/
