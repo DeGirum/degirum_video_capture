@@ -9,9 +9,9 @@ The goals of this project are to:
 
 ## License
 
-[MIT License](https://github.com/DeGirum/degirum_video_capture/blob/main/LICENSE)
+[MIT License](https://github.com/DeGirum/degirum_video_capture/blob/master/LICENSE)
 
-[External Licenses](https://github.com/DeGirum/degirum_video_capture/blob/main/LICENSES)
+[External Licenses](https://github.com/DeGirum/degirum_video_capture/blob/master/LICENSES)
 
 ## Installation
 
