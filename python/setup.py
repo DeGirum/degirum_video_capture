@@ -64,8 +64,11 @@ setup(
         "numpy>=1.19.0",
     ],
     package_data={
-        "degirum_video_capture": ["*.so", "*.pyd", "*.dll"],
+        "degirum_video_capture": ["*.so", "*.pyd", "*.dll", "LICENSES/*"],
     },
+    data_files=[
+        (".", ["LICENSE"]),
+    ],
     include_package_data=True,
 )
 
