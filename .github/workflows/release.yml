@@ -18,7 +18,7 @@ on:
 
 jobs:
   build:
-    name: Build wheel (${{ matrix.runner }}, Python ${{ matrix.python }})
+    name: Build wheel (${{ matrix.os }}, Python ${{ matrix.python }})
 
     defaults:
       run:
@@ -27,13 +27,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        #runner:
-          #- dg-ubuntu-20.04-cs
-          #- dg-ubuntu-22.04-arm
-        runs_on: [ubuntu-22.04, ubuntu-22.04-arm]
+        os: [ubuntu-22.04, ubuntu-22.04-arm]
         python: ["3.9", "3.10", "3.11", "3.12", "3.13"]
 
-    runs-on: ${{ matrix.runner }}
+    runs-on: ${{ matrix.os }}
 
     timeout-minutes: 15
     steps:
@@ -56,7 +53,7 @@ jobs:
       - name: Set cache key based on runner
         id: cache_key
         run: |
-          if [[ "${{ matrix.runner }}" == "dg-ubuntu-22.04-arm" ]]; then
+          if [[ "${{ matrix.os }}" == "ubuntu-22.04-arm" ]]; then
             echo "cache_prefix=dg-ubuntu-22.04-arm" >> $GITHUB_OUTPUT
           else
             echo "cache_prefix=" >> $GITHUB_OUTPUT
@@ -179,7 +176,7 @@ jobs:
       - name: Upload wheel as artifact
         uses: actions/upload-artifact@v4
         with:
-          name: wheel-${{ matrix.runner }}-py${{ matrix.python }}
+          name: wheel-${{ matrix.os }}-py${{ matrix.python }}
           path: ${{ github.workspace }}/manylinux_wheels/*.whl
           if-no-files-found: error
 
