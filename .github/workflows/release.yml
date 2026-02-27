@@ -161,6 +161,20 @@ jobs:
           echo "Manylinux wheels created:"
           ls -la ${{ github.workspace }}/manylinux_wheels/
 
+      - name: Test built package functionality
+        run: |
+          echo "Testing built package functionality..."
+          
+          # Set PYTHONPATH to use the built package directly (no installation needed)
+          export PYTHONPATH="${{ github.workspace }}/build/python/package:$PYTHONPATH"
+          
+          # Run the complete test suite
+          echo "Running complete test suite..."
+          cd ${{ github.workspace }}/tests
+          python test_video_capture.py
+          
+          echo "✓ Package functionality tests completed successfully"
+
       - name: Upload wheel as artifact
         uses: actions/upload-artifact@v4
         with:

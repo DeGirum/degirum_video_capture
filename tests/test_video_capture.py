@@ -11,7 +11,7 @@ import time
 import numpy as np
 
 # Default test video - use absolute path relative to this script
-DEFAULT_VIDEO = os.path.join(os.path.dirname(os.path.abspath(__file__)), "SMPTE_Color_Bars.mp4")
+DEFAULT_VIDEO = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets/SMPTE_Color_Bars.mp4")
 
 # Import the module
 try:
@@ -233,6 +233,8 @@ def main():
     else:
         print("✗ SOME TESTS FAILED")
     print("=" * 60)
+
+    assert all_passed, "Some tests failed. Check the output above for details."
 
 
 if __name__ == "__main__":
