@@ -204,7 +204,7 @@ jobs:
         id: create_tag
         run: |
           wheel_file=$(find dist -name "*.whl" -print -quit)
-          package_version=${{ github.ref_name }}-v$(basename $wheel_file | sed 's/^[^-]*-\([^ -]*\).*/\1/')
+          package_version=v$(basename $wheel_file | sed 's/^[^-]*-\([^ -]*\).*/\1/')
           echo "Package version tag: $package_version"
           if git ls-remote --tags origin | grep -q "refs/tags/$package_version$"; then
             echo "Tag $package_version already exists. Skipping."
