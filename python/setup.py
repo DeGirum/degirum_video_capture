@@ -40,7 +40,6 @@ setup(
     long_description=open(os.path.join(os.path.dirname(__file__), "..", "README.md")).read() if os.path.exists(os.path.join(os.path.dirname(__file__), "..", "README.md")) else "",
     long_description_content_type="text/markdown",
     url="https://github.com/DeGirum/degirum_video_capture",
-    license="MIT",
     packages=find_packages(),
     ext_modules=[
         Extension(
