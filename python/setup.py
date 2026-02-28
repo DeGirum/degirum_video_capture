@@ -40,6 +40,8 @@ setup(
     long_description=open(os.path.join(os.path.dirname(__file__), "..", "README.md")).read() if os.path.exists(os.path.join(os.path.dirname(__file__), "..", "README.md")) else "",
     long_description_content_type="text/markdown",
     url="https://github.com/DeGirum/degirum_video_capture",
+    license="MIT",
+    license_files=["LICENSE"],
     packages=find_packages(),
     ext_modules=[
         Extension(
@@ -66,9 +68,6 @@ setup(
     package_data={
         "degirum_video_capture": ["*.so", "*.pyd", "*.dll", "LICENSES/*"],
     },
-    data_files=[
-        (".", ["LICENSE"]),
-    ],
     include_package_data=True,
 )
 
