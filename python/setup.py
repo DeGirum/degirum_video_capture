@@ -41,7 +41,6 @@ setup(
     long_description_content_type="text/markdown",
     url="https://github.com/DeGirum/degirum_video_capture",
     license="MIT",
-    license_files=["LICENSE"],
     packages=find_packages(),
     ext_modules=[
         Extension(
