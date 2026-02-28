@@ -59,6 +59,7 @@ setup(
         "Programming Language :: Python :: 3.13",
     ],
     license="Proprietary (https://github.com/DeGirum/degirum_video_capture/blob/master/LICENSE)",
+    license_files=["LICENSE"],
     python_requires=">=3.9",
     package_data={
         "degirum_video_capture": ["*.so", "*.pyd", "*.dll", "LICENSES/*"],
