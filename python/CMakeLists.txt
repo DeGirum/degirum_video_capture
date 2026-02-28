@@ -54,7 +54,7 @@ add_custom_command(
     COMMENT "Copying Python package files"
 )
 
-# Copy setup.py, README, and LICENSE files
+# Copy setup.py, README.md, and LICENSE files
 add_custom_command(
     TARGET _video_capture POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy
@@ -67,6 +67,15 @@ add_custom_command(
         ${CMAKE_SOURCE_DIR}/LICENSE
         ${PYTHON_PACKAGE_DIR}/LICENSE
     COMMENT "Copying setup.py, README.md, and LICENSE"
+)
+
+# Copy README.md to package directory as well
+add_custom_command(
+    TARGET _video_capture POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy
+        ${CMAKE_SOURCE_DIR}/README.md
+        ${PYTHON_PACKAGE_DIR}/degirum_video_capture/README.md
+    COMMENT "Copying README.md to package directory"
 )
 
 # Copy LICENSES folder to package

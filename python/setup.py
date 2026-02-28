@@ -4,6 +4,7 @@ Setup script for degirum_video_capture package
 
 import os
 from setuptools import setup, find_packages, Extension
+from pathlib import Path
 
 # Get version from _version.py
 def get_version():
@@ -31,13 +32,18 @@ def get_version():
     
     return '0.0.0'  # Final fallback
 
+root_path = Path(__file__).resolve().parent
+
+# load README.md
+readme = open(root_path / "README.md", encoding="utf-8").read()
+
 setup(
     name="degirum_video_capture",
     version=get_version(),
     author="DeGirum Corporation",
     author_email="support@degirum.com",
     description="High-performance video capture library using FFmpeg",
-    long_description=open(os.path.join(os.path.dirname(__file__), "..", "README.md")).read() if os.path.exists(os.path.join(os.path.dirname(__file__), "..", "README.md")) else "",
+    long_description=readme,
     long_description_content_type="text/markdown",
     url="https://github.com/DeGirum/degirum_video_capture",
     packages=find_packages(),
@@ -58,11 +64,11 @@ setup(
         "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: 3.13",
     ],
-    license="Proprietary (https://github.com/DeGirum/degirum_video_capture/blob/master/LICENSE)",
+    license="MIT (https://github.com/DeGirum/degirum_video_capture/blob/master/LICENSE)",
     license_files=[],
     python_requires=">=3.9",
     package_data={
-        "degirum_video_capture": ["*.so", "*.pyd", "*.dll", "LICENSES/*"],
+        "degirum_video_capture": ["*.so", "*.pyd", "*.dll", "LICENSES/*", "README.md"],
     },
     include_package_data=True,
 )
